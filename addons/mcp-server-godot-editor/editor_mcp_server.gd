@@ -207,7 +207,13 @@ func _dispatch_method(method: String, params: Dictionary, id: Variant) -> void:
 			if is_request:
 				_send_result(id, {})
 
-		# TODO: Add more method handlers here (tools/list, tools/call, etc.)
+		"tools/list":
+			if is_request:
+				_handle_tools_list(id)
+
+		"tools/call":
+			if is_request:
+				_handle_tools_call(params, id)
 
 		_:
 			if is_request:
@@ -216,9 +222,77 @@ func _dispatch_method(method: String, params: Dictionary, id: Variant) -> void:
 				printerr("[MCP] Unknown notification: ", method)
 
 
+func _handle_tools_list(id: Variant) -> void:
+	var tools := [
+		{
+			"name": "take_screenshot",
+			"description": "Takes a screenshot of the currently running game. The game must be running in debug mode from the editor.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+			},
+		},
+	]
+	_send_result(id, {"tools": tools})
+
+
+func _handle_tools_call(params: Dictionary, id: Variant) -> void:
+	var tool_name: String = params.get("name", "")
+	var tool_args: Dictionary = params.get("arguments", {})
+
+	match tool_name:
+		"take_screenshot":
+			_call_take_screenshot.call_deferred(id)
+
+		_:
+			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
+
+
+func _call_take_screenshot(id: Variant) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	if engine_client.ready_sessions.is_empty():
+		_send_tool_error(id, "No game is currently running. Start the game from the editor first.")
+		return
+
+	# Send the screenshot request to the running game
+	engine_client.send_message("take_screenshot", [])
+
+	# Wait for the screenshot response
+	var result: Array = await engine_client.screenshot_received
+	var image: Image = result[0]
+
+	# Convert to base64 PNG
+	var png_data := image.save_png_to_buffer()
+	var base64_data := Marshalls.raw_to_base64(png_data)
+
+	_send_result(id, {
+		"content": [
+			{
+				"type": "image",
+				"data": base64_data,
+				"mimeType": "image/png",
+			}
+		],
+	})
+
+
+func _send_tool_error(id: Variant, message: String) -> void:
+	_send_result(id, {
+		"content": [
+			{
+				"type": "text",
+				"text": message,
+			}
+		],
+		"isError": true,
+	})
+
+
 func _get_server_capabilities() -> Dictionary:
-	# For now, declare minimal capabilities
-	# TODO: Add more capabilities as we implement features
 	return {
 		"logging": {},
 		"tools": {},
