@@ -21,6 +21,10 @@ enum {
 	ERROR_INTERNAL_ERROR = -32603,
 }
 
+const EngineClient := preload("engine_client.gd")
+
+var engine_client: EngineClient
+
 var _mutex := Mutex.new()
 var _thread := Thread.new()
 var _keep_running := false
@@ -30,7 +34,7 @@ var _client_capabilities := {}
 var _client_info := {}
 
 func _ready() -> void:
-	assert(Engine.is_editor_hint(), "editor_server.gd should only be run in the editor.")
+	assert(Engine.is_editor_hint(), "Editor MCP server should only be run in the editor.")
 
 func _enter_tree() -> void:
 	_was_printing_to_stdout = Engine.print_to_stdout

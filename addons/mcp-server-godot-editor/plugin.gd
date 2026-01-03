@@ -1,9 +1,11 @@
 @tool
 extends EditorPlugin
 
-const EDITOR_SERVER_SCRIPT: GDScript = preload("res://addons/mcp-server-godot-editor/editor_server.gd")
+const EditorMcpServer := preload("editor_mcp_server.gd")
+const EngineClient := preload("engine_client.gd")
 
-var _editor_server: Node
+var _editor_mcp_server: EditorMcpServer
+var _engine_client: EngineClient
 
 func _enable_plugin() -> void:
 	# Add autoloads here.
@@ -14,9 +16,16 @@ func _disable_plugin() -> void:
 	pass
 
 func _enter_tree() -> void:
-	_editor_server = EDITOR_SERVER_SCRIPT.new()
-	add_child(_editor_server)
+	_engine_client = EngineClient.new()
+	add_debugger_plugin(_engine_client)
+
+	_editor_mcp_server = EditorMcpServer.new()
+	_editor_mcp_server.engine_client = _engine_client
+	add_child(_editor_mcp_server)
 
 func _exit_tree() -> void:
-	_editor_server.queue_free()
-	_editor_server = null
+	_editor_mcp_server.queue_free()
+	_editor_mcp_server = null
+
+	remove_debugger_plugin(_engine_client)
+	_engine_client = null
