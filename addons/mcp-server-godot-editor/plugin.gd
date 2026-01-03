@@ -4,16 +4,16 @@ extends EditorPlugin
 const EditorMcpServer := preload("editor_mcp_server.gd")
 const EngineClient := preload("engine_client.gd")
 
+const ENGINE_SERVER_AUTOLOAD = &"MCPEngineServer"
+
 var _editor_mcp_server: EditorMcpServer
 var _engine_client: EngineClient
 
 func _enable_plugin() -> void:
-	# Add autoloads here.
-	pass
+	add_autoload_singleton(ENGINE_SERVER_AUTOLOAD, "engine_server.gd")
 
 func _disable_plugin() -> void:
-	# Remove autoloads here.
-	pass
+	remove_autoload_singleton(ENGINE_SERVER_AUTOLOAD)
 
 func _enter_tree() -> void:
 	_engine_client = EngineClient.new()

@@ -4,6 +4,7 @@ extends Node
 const C := preload("constants.gd")
 
 func _enter_tree() -> void:
+	print("[MCP] Registering message capture for MCP engine server.")
 	EngineDebugger.register_message_capture(C.MESSAGE_PREFIX, self._on_message_captured)
 	EngineDebugger.send_message("%s:ready" % C.MESSAGE_PREFIX, [])
 
