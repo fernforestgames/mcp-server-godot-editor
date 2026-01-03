@@ -24,12 +24,11 @@ enum {
 
 const AwaitUtils := preload("await_utils.gd")
 const EngineClient := preload("engine_client.gd")
+const StdinReader := preload("stdin_reader.gd")
 
 var engine_client: EngineClient
 
-var _mutex := Mutex.new()
-var _thread := Thread.new()
-var _keep_running := false
+var _stdin_reader: Node
 var _was_printing_to_stdout := false
 var _state := State.UNINITIALIZED
 var _client_capabilities := {}
@@ -41,71 +40,42 @@ func _ready() -> void:
 func _enter_tree() -> void:
 	_was_printing_to_stdout = Engine.print_to_stdout
 	if _was_printing_to_stdout:
-		printerr("[MCP] Disabling stdout printing for MCP server compatibility.")
+		push_warning("[MCP] Disabling stdout printing for MCP server compatibility.")
 		Engine.print_to_stdout = false
-
-	_mutex.lock()
-	_keep_running = true
-	_mutex.unlock()
-
-	_thread.start(self._thread_main)
+	
+	_stdin_reader = StdinReader.new()
+	_stdin_reader.stdin_started.connect(_on_stdin_started)
+	_stdin_reader.stdin_line.connect(_on_stdin_line)
+	_stdin_reader.stdin_closed.connect(_on_stdin_closed)
+	_stdin_reader.stdin_error.connect(_on_stdin_error)
+	add_child(_stdin_reader)
 
 func _exit_tree() -> void:
-	_shutdown()
-
-func _shutdown() -> void:
-	_mutex.lock()
-	_keep_running = false
-	_mutex.unlock()
-
-	if _thread.is_started():
-		_thread.wait_to_finish()
+	_stdin_reader.queue_free()
+	_stdin_reader = null
 
 	if _was_printing_to_stdout:
 		Engine.print_to_stdout = true
-		printerr("[MCP] stdout printing re-enabled.")
+		push_warning("[MCP] stdout printing re-enabled.")
 
-func _thread_main() -> void:
-	OS.set_thread_name("MCPServer")
+func _on_stdin_started() -> void:
+	push_warning("[MCP] MCP server started, listening for messages on stdin.")
 
-	if OS.get_stdin_type() == OS.STD_HANDLE_INVALID:
-		push_warning("[MCP] No stdin available. MCP server will not be active.")
-		_shutdown.call_deferred()
-		return
-	
-	printerr("[MCP] MCP server started, listening for messages on stdin.")
-	var input_buffer := PackedByteArray()
+func _on_stdin_error(error: String) -> void:
+	push_error("[MCP] Stdin error: ", error, ". MCP server will not be active.")
 
-	while true:
-		_mutex.lock()
-		var running := _keep_running
-		_mutex.unlock()
+func _on_stdin_closed() -> void:
+	push_warning("[MCP] Stdin closed.")
 
-		if not running:
-			break
-		
-		var byte := OS.read_buffer_from_stdin(1)
-		if not byte:
-			print("[MCP] No data read from stdin.")
-			break
-		
-		if byte[0] == ord('\n'):
-			_thread_process_message(input_buffer)
-			input_buffer.clear()
-			continue
-		
-		input_buffer.append_array(byte)
-
-func _thread_process_message(input_buffer: PackedByteArray) -> void:
-	var message := input_buffer.get_string_from_utf8()
-	if message.is_empty():
+func _on_stdin_line(line: String) -> void:
+	if not line:
 		return
 
-	printerr("[MCP] Received message: ", message)
+	push_warning("[MCP] Received message: ", line)
 
-	var parsed: Variant = JSON.parse_string(message)
+	var parsed: Variant = JSON.parse_string(line)
 	if parsed == null:
-		printerr("[MCP] Failed to parse JSON: ", message)
+		push_error("[MCP] Failed to parse JSON: ", line)
 		_send_error(null, ERROR_PARSE_ERROR, "Parse error")
 		return
 
@@ -150,7 +120,7 @@ func _handle_message(method: String, params: Dictionary, id: Variant) -> void:
 				if is_request:
 					_send_error(id, ERROR_INVALID_REQUEST, "Server not initialized. Send 'initialize' request first.")
 				else:
-					printerr("[MCP] Ignoring notification before initialization: ", method)
+					push_warning("[MCP] Ignoring notification before initialization: ", method)
 
 		State.INITIALIZING:
 			# Only accept initialized notification or ping
@@ -162,7 +132,7 @@ func _handle_message(method: String, params: Dictionary, id: Variant) -> void:
 				if is_request:
 					_send_error(id, ERROR_INVALID_REQUEST, "Server is initializing. Wait for 'initialized' notification.")
 				else:
-					printerr("[MCP] Ignoring notification during initialization: ", method)
+					push_warning("[MCP] Ignoring notification during initialization: ", method)
 
 		State.INITIALIZED:
 			# Normal operation - dispatch to method handlers
@@ -170,7 +140,6 @@ func _handle_message(method: String, params: Dictionary, id: Variant) -> void:
 
 
 func _handle_initialize(params: Dictionary, id: Variant) -> void:
-	printerr("[MCP] Handling initialize request")
 	_state = State.INITIALIZING
 
 	# Store client info
@@ -178,8 +147,8 @@ func _handle_initialize(params: Dictionary, id: Variant) -> void:
 	_client_capabilities = params.get("capabilities", {})
 	var client_protocol_version: String = params.get("protocolVersion", "")
 
-	printerr("[MCP] Client: ", _client_info.get("name", "unknown"), " version ", _client_info.get("version", "unknown"))
-	printerr("[MCP] Client protocol version: ", client_protocol_version)
+	push_warning("[MCP] Client: ", _client_info.get("name", "unknown"), " version ", _client_info.get("version", "unknown"))
+	push_warning("[MCP] Client protocol version: ", client_protocol_version)
 
 	# Version negotiation: respond with our supported version
 	# If client doesn't support our version, they should disconnect
@@ -196,7 +165,7 @@ func _handle_initialize(params: Dictionary, id: Variant) -> void:
 
 
 func _handle_initialized() -> void:
-	printerr("[MCP] Client sent initialized notification - server is now fully initialized")
+	push_warning("[MCP] Client sent initialized notification - server is now fully initialized")
 	_state = State.INITIALIZED
 
 
@@ -226,7 +195,7 @@ func _dispatch_method(method: String, params: Dictionary, id: Variant) -> void:
 			if is_request:
 				_send_error(id, ERROR_METHOD_NOT_FOUND, "Method not found: " + method)
 			else:
-				printerr("[MCP] Unknown notification: ", method)
+				push_error("[MCP] Unknown notification: ", method)
 
 
 func _handle_tools_list(id: Variant) -> void:
@@ -282,20 +251,21 @@ func _handle_tools_call(params: Dictionary, id: Variant) -> void:
 
 	match tool_name:
 		"take_screenshot":
-			_call_take_screenshot.call_deferred(id)
+			_call_take_screenshot(id)
 
 		"play_main_scene":
-			_call_play_main_scene.call_deferred(id)
+			_call_play_main_scene(id)
 
 		"play_scene":
 			var path: String = tool_args.get("path", "")
 			if path.is_empty():
 				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter: path")
 				return
-			_call_play_scene.call_deferred(id, path)
+
+			_call_play_scene(id, path)
 
 		"stop_playing_scene":
-			_call_stop_playing_scene.call_deferred(id)
+			_call_stop_playing_scene(id)
 
 		_:
 			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
@@ -438,7 +408,7 @@ func _send_notification(method: String, params: Dictionary = {}) -> void:
 
 func _send_json(obj: Dictionary) -> void:
 	var json_str := JSON.stringify(obj)
-	printerr("[MCP] Sending: ", json_str)
+
 	# TODO: This almost certainly has a race condition. To be more robust, we could use a C++ extension that has direct access to the stdout handle.
 	Engine.print_to_stdout = true
 	printraw(json_str, "\n")
