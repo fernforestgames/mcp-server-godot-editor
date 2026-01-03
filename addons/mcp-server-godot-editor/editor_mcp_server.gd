@@ -5,6 +5,7 @@ extends Node
 const PROTOCOL_VERSION := "2024-11-05"
 const SERVER_NAME := "godot-editor"
 const SERVER_VERSION := "0.1.0"
+const DEFAULT_ENGINE_MESSAGE_TIMEOUT_SEC := 5.0
 
 enum State {
 	UNINITIALIZED,
@@ -443,7 +444,7 @@ func _send_json(obj: Dictionary) -> void:
 	printraw(json_str, "\n")
 	Engine.print_to_stdout = false
 
-func _wait_on_signal(sig: Signal, timeout_sec: float = 1.0) -> Variant:
+func _wait_on_signal(sig: Signal, timeout_sec: float = DEFAULT_ENGINE_MESSAGE_TIMEOUT_SEC) -> Variant:
 	var result: Array[Variant]
 	await AwaitUtils.await_any([
 		func() -> void:
