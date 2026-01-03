@@ -16,3 +16,4 @@ data_*/
 mono_crash.*.json
 
 mcp-spec.txt
+.claude/*.local.json
