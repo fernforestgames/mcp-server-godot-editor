@@ -13,7 +13,6 @@ config_version=5
 config/name="Godot Editor MCP"
 run/main_scene="uid://d56fmu4ddqsb"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/icon="res://icon.svg"
 
 [autoload]
 
