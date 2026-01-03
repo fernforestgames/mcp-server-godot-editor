@@ -52,8 +52,12 @@ func _shutdown() -> void:
 	_keep_running = false
 	_mutex.unlock()
 
-	_thread.wait_to_finish()
-	Engine.print_to_stdout = _was_printing_to_stdout
+	if _thread.is_started():
+		_thread.wait_to_finish()
+
+	if _was_printing_to_stdout:
+		Engine.print_to_stdout = true
+		printerr("[MCP] stdout printing re-enabled.")
 
 func _thread_main() -> void:
 	OS.set_thread_name("MCPServer")
