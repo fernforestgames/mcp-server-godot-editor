@@ -21,6 +21,7 @@ enum {
 	ERROR_INTERNAL_ERROR = -32603,
 }
 
+const AwaitUtils := preload("await_utils.gd")
 const EngineClient := preload("engine_client.gd")
 
 var engine_client: EngineClient
@@ -176,7 +177,7 @@ func _handle_initialize(params: Dictionary, id: Variant) -> void:
 	_client_capabilities = params.get("capabilities", {})
 	var client_protocol_version: String = params.get("protocolVersion", "")
 
-	printerr("[MCP] Client: ", _client_info.get("name", "unknown"), " v", _client_info.get("version", "unknown"))
+	printerr("[MCP] Client: ", _client_info.get("name", "unknown"), " version ", _client_info.get("version", "unknown"))
 	printerr("[MCP] Client protocol version: ", client_protocol_version)
 
 	# Version negotiation: respond with our supported version
@@ -214,6 +215,11 @@ func _dispatch_method(method: String, params: Dictionary, id: Variant) -> void:
 		"tools/call":
 			if is_request:
 				_handle_tools_call(params, id)
+		
+		"notifications/cancelled":
+			if not is_request:
+				# Currently no-op
+				pass
 
 		_:
 			if is_request:
@@ -262,8 +268,7 @@ func _call_take_screenshot(id: Variant) -> void:
 	engine_client.send_message("take_screenshot", [])
 
 	# Wait for the screenshot response
-	# TODO: Add a timeout in case this fails
-	var webp_buffer: PackedByteArray = await engine_client.screenshot_received
+	var webp_buffer: PackedByteArray = await _wait_on_signal(engine_client.screenshot_received)
 
 	# Convert to base64
 	var base64_data := Marshalls.raw_to_base64(webp_buffer)
@@ -340,3 +345,20 @@ func _send_json(obj: Dictionary) -> void:
 	Engine.print_to_stdout = true
 	printraw(json_str, "\n")
 	Engine.print_to_stdout = false
+
+func _wait_on_signal(sig: Signal, timeout_sec: float = 1.0) -> Variant:
+	var result: Array[Variant]
+	await AwaitUtils.await_any([
+		func() -> void:
+			var value: Variant = await sig
+			result.append(value),
+
+		func() -> void:
+			var timer := get_tree().create_timer(timeout_sec, true, false, true)
+			await timer.timeout,
+	])
+
+	if result:
+		return result[0]
+	else:
+		return null

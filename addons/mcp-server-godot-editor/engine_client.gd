@@ -26,7 +26,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			var webp_buffer: PackedByteArray = data[0]
 			screenshot_received.emit(webp_buffer)
 			return true
-		
+
 		_:
 			return false
 
