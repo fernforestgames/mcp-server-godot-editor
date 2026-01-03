@@ -61,4 +61,19 @@ func _thread_main() -> void:
 		input_buffer.append_array(byte)
 
 func _thread_process_messages(input_buffer: PackedByteArray) -> void:
-	printerr("[MCP] Received message: ", input_buffer.get_string_from_utf8())
+	var messages := input_buffer.get_string_from_utf8().split("\n")
+	for message in messages:
+		printerr("[MCP] Received message: ", message)
+
+		var parsed_message: Variant = JSON.parse_string(message)
+		if parsed_message == null:
+			printerr("[MCP] Failed to parse message: ", message)
+			continue
+		
+		# TODO: Unwrap JSON-RPC payload and handle methods.
+
+func send_message(message: String) -> void:
+	# TODO: This almost certainly has a race condition. To be more robust, we could use a C++ extension that has direct access to the stdout handle.
+	Engine.print_to_stdout = true
+	printraw(message, "\n")
+	Engine.print_to_stdout = false
