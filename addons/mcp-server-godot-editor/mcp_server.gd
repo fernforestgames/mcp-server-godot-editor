@@ -4,8 +4,14 @@ extends Node
 var _mutex := Mutex.new()
 var _thread := Thread.new()
 var _keep_running := false
+var _was_printing_to_stdout := false
 
 func _enter_tree() -> void:
+	_was_printing_to_stdout = Engine.print_to_stdout
+	if _was_printing_to_stdout:
+		printerr("[MCP] Disabling stdout printing for MCP server compatibility.")
+		Engine.print_to_stdout = false
+
 	_mutex.lock()
 	_keep_running = true
 	_mutex.unlock()
@@ -13,20 +19,25 @@ func _enter_tree() -> void:
 	_thread.start(self._thread_main)
 
 func _exit_tree() -> void:
+	_shutdown()
+
+func _shutdown() -> void:
 	_mutex.lock()
 	_keep_running = false
 	_mutex.unlock()
 
 	_thread.wait_to_finish()
+	Engine.print_to_stdout = _was_printing_to_stdout
 
 func _thread_main() -> void:
 	OS.set_thread_name("MCPServer")
 
 	if OS.get_stdin_type() == OS.STD_HANDLE_INVALID:
 		push_warning("[MCP] No stdin available. MCP server will not be active.")
+		_shutdown.call_deferred()
 		return
 	
-	print("[MCP] MCP server started, listening for messages on stdin.")
+	printerr("[MCP] MCP server started, listening for messages on stdin.")
 	var input_buffer := PackedByteArray()
 
 	while true:
@@ -50,4 +61,4 @@ func _thread_main() -> void:
 		input_buffer.append_array(byte)
 
 func _thread_process_messages(input_buffer: PackedByteArray) -> void:
-	print("[MCP] Received message: ", input_buffer.get_string_from_utf8())
+	printerr("[MCP] Received message: ", input_buffer.get_string_from_utf8())
