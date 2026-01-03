@@ -1,5 +1,6 @@
 @tool
 extends Node
+## MCP server that runs in the Godot editor.
 
 const PROTOCOL_VERSION := "2024-11-05"
 const SERVER_NAME := "godot-editor"
@@ -27,6 +28,9 @@ var _was_printing_to_stdout := false
 var _state := State.UNINITIALIZED
 var _client_capabilities := {}
 var _client_info := {}
+
+func _ready() -> void:
+	assert(Engine.is_editor_hint(), "editor_server.gd should only be run in the editor.")
 
 func _enter_tree() -> void:
 	_was_printing_to_stdout = Engine.print_to_stdout

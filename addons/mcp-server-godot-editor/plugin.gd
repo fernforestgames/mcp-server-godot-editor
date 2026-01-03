@@ -1,23 +1,22 @@
 @tool
 extends EditorPlugin
 
-const AUTOLOAD_NAME := "MCPServer"
+const EDITOR_SERVER_SCRIPT: GDScript = preload("res://addons/mcp-server-godot-editor/editor_server.gd")
+
+var _editor_server: Node
 
 func _enable_plugin() -> void:
 	# Add autoloads here.
-	add_autoload_singleton(AUTOLOAD_NAME, "res://addons/mcp-server-godot-editor/mcp_server.gd")
-
+	pass
 
 func _disable_plugin() -> void:
 	# Remove autoloads here.
-	remove_autoload_singleton(AUTOLOAD_NAME)
-
+	pass
 
 func _enter_tree() -> void:
-	# Initialization of the plugin goes here.
-	pass
-
+	_editor_server = EDITOR_SERVER_SCRIPT.new()
+	add_child(_editor_server)
 
 func _exit_tree() -> void:
-	# Clean-up of the plugin goes here.
-	pass
+	_editor_server.queue_free()
+	_editor_server = null
