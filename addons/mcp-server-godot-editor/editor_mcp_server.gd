@@ -262,19 +262,18 @@ func _call_take_screenshot(id: Variant) -> void:
 	engine_client.send_message("take_screenshot", [])
 
 	# Wait for the screenshot response
-	var result: Array = await engine_client.screenshot_received
-	var image: Image = result[0]
+	# TODO: Add a timeout in case this fails
+	var webp_buffer: PackedByteArray = await engine_client.screenshot_received
 
-	# Convert to base64 PNG
-	var png_data := image.save_png_to_buffer()
-	var base64_data := Marshalls.raw_to_base64(png_data)
+	# Convert to base64
+	var base64_data := Marshalls.raw_to_base64(webp_buffer)
 
 	_send_result(id, {
 		"content": [
 			{
 				"type": "image",
 				"data": base64_data,
-				"mimeType": "image/png",
+				"mimeType": "image/webp",
 			}
 		],
 	})

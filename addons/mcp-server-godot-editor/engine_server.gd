@@ -14,8 +14,10 @@ func _exit_tree() -> void:
 func _on_message_captured(message: String, data: Array) -> bool:
 	match message:
 		"take_screenshot":
+			print("[MCP] Taking screenshot")
 			var image := get_viewport().get_texture().get_image()
-			EngineDebugger.send_message("%s:screenshot" % C.MESSAGE_PREFIX, [image])
+			var buffer := image.save_webp_to_buffer()
+			EngineDebugger.send_message("%s:screenshot" % C.MESSAGE_PREFIX, [buffer])
 			return true
 
 		_:

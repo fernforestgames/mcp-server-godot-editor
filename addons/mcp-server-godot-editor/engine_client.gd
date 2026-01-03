@@ -4,7 +4,7 @@ extends EditorDebuggerPlugin
 
 const C := preload("constants.gd")
 
-signal screenshot_received(image: Image)
+signal screenshot_received(webp_buffer: PackedByteArray)
 
 var ready_sessions: Array[int]
 
@@ -23,8 +23,8 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 
 		"%s:screenshot" % C.MESSAGE_PREFIX:
-			var image: Image = data[0]
-			screenshot_received.emit(image)
+			var webp_buffer: PackedByteArray = data[0]
+			screenshot_received.emit(webp_buffer)
 			return true
 		
 		_:
