@@ -5,6 +5,7 @@ extends EditorDebuggerPlugin
 const C := preload("constants.gd")
 
 signal screenshot_received(webp_buffer: PackedByteArray)
+signal session_ready(session_id: int)
 
 var ready_sessions: Array[int]
 
@@ -20,6 +21,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 	match message:
 		"%s:ready" % C.MESSAGE_PREFIX:
 			ready_sessions.append(session_id)
+			session_ready.emit(session_id)
 			return true
 
 		"%s:screenshot" % C.MESSAGE_PREFIX:

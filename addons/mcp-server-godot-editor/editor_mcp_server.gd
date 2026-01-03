@@ -239,6 +239,38 @@ func _handle_tools_list(id: Variant) -> void:
 				"required": [],
 			},
 		},
+		{
+			"name": "play_main_scene",
+			"description": "Plays the project's main scene in the Godot editor.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+			},
+		},
+		{
+			"name": "play_scene",
+			"description": "Plays a specific scene in the Godot editor.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"description": "The resource path to the scene file (e.g., 'res://scenes/level.tscn').",
+					},
+				},
+				"required": ["path"],
+			},
+		},
+		{
+			"name": "stop_playing_scene",
+			"description": "Stops the currently running scene in the Godot editor.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+			},
+		},
 	]
 	_send_result(id, {"tools": tools})
 
@@ -250,6 +282,19 @@ func _handle_tools_call(params: Dictionary, id: Variant) -> void:
 	match tool_name:
 		"take_screenshot":
 			_call_take_screenshot.call_deferred(id)
+
+		"play_main_scene":
+			_call_play_main_scene.call_deferred(id)
+
+		"play_scene":
+			var path: String = tool_args.get("path", "")
+			if path.is_empty():
+				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter: path")
+				return
+			_call_play_scene.call_deferred(id, path)
+
+		"stop_playing_scene":
+			_call_stop_playing_scene.call_deferred(id)
 
 		_:
 			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
@@ -279,6 +324,58 @@ func _call_take_screenshot(id: Variant) -> void:
 				"type": "image",
 				"data": base64_data,
 				"mimeType": "image/webp",
+			}
+		],
+	})
+
+
+func _call_play_main_scene(id: Variant) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	EditorInterface.play_main_scene()
+
+	# Wait for the game to signal it's ready
+	var session_id: Variant = await _wait_on_signal(engine_client.session_ready)
+	if session_id == null:
+		_send_tool_error(id, "Timed out waiting for game to start.")
+		return
+
+	_send_tool_result(id, "Started playing main scene.")
+
+
+func _call_play_scene(id: Variant, path: String) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	if not FileAccess.file_exists(path):
+		_send_tool_error(id, "Scene file not found: " + path)
+		return
+
+	EditorInterface.play_custom_scene(path)
+
+	# Wait for the game to signal it's ready
+	var session_id: Variant = await _wait_on_signal(engine_client.session_ready)
+	if session_id == null:
+		_send_tool_error(id, "Timed out waiting for game to start.")
+		return
+
+	_send_tool_result(id, "Started playing scene: " + path)
+
+
+func _call_stop_playing_scene(id: Variant) -> void:
+	EditorInterface.stop_playing_scene()
+	_send_tool_result(id, "Stopped playing scene.")
+
+
+func _send_tool_result(id: Variant, message: String) -> void:
+	_send_result(id, {
+		"content": [
+			{
+				"type": "text",
+				"text": message,
 			}
 		],
 	})
