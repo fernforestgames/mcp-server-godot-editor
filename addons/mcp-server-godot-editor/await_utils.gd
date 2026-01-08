@@ -1,5 +1,3 @@
-class_name AwaitUtils
-
 class _Awaiter:
 	signal any_finished
 
