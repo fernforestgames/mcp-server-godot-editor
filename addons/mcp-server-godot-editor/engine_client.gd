@@ -6,6 +6,7 @@ const C := preload("constants.gd")
 
 signal screenshot_received(webp_buffer: PackedByteArray)
 signal session_ready(session_id: int)
+signal input_synthesized(result: Dictionary)
 
 var ready_sessions: Array[int]
 
@@ -27,6 +28,11 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"%s:screenshot" % C.MESSAGE_PREFIX:
 			var webp_buffer: PackedByteArray = data[0]
 			screenshot_received.emit(webp_buffer)
+			return true
+
+		"%s:input_synthesized" % C.MESSAGE_PREFIX:
+			var result: Dictionary = data[0] if data else {}
+			input_synthesized.emit(result)
 			return true
 
 		_:
