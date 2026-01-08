@@ -31,6 +31,7 @@ MCP Client <--stdin/stdout--> editor_mcp_server.gd <--EngineDebugger--> engine_s
 - `play_main_scene` - Starts the project's main scene
 - `play_scene` - Starts a specific scene by path
 - `stop_playing_scene` - Stops the currently running scene
+- `synthesize_input` - Injects input events into the running game (key, mouse, action, joypad)
 
 ## Development Notes
 
@@ -39,3 +40,14 @@ MCP Client <--stdin/stdout--> editor_mcp_server.gd <--EngineDebugger--> engine_s
 - Screenshot data is transferred as WebP and base64-encoded for MCP response
 - The server disables `Engine.print_to_stdout` to prevent Godot's print statements from corrupting the JSON-RPC stream
 - Message prefix "mcp" is used for debugger message capture routing (see constants.gd)
+
+## Testing Workflow
+
+When testing MCP tools that require a running game:
+1. Call `play_main_scene` or `play_scene` first
+2. Immediately follow up with the tool you want to test (e.g., `take_screenshot`, `synthesize_input`)
+3. Always call `stop_playing_scene` when done
+
+**Important:** Never call `play_main_scene` without a follow-up action or stop command, as the game will run indefinitely and block further testing.
+
+**MCP Server Restart:** You are already connected to this MCP server via the `mcp__godot-editor__*` tools. After modifying the plugin code, ask the user to restart the MCP server so changes take effect before testing.
