@@ -32,6 +32,8 @@ MCP Client <--stdin/stdout--> editor_mcp_server.gd <--EngineDebugger--> engine_s
 - `play_scene` - Starts a specific scene by path
 - `stop_playing_scene` - Stops the currently running scene
 - `synthesize_input` - Injects input events into the running game (key, mouse, action, joypad)
+- `click_node` - Finds a node by path/unique name/accessibility name and clicks it
+- `hover_node` - Finds a node and moves the mouse to it (for hover states, tooltips)
 
 ## Development Notes
 
@@ -53,3 +55,23 @@ When testing MCP tools that require a running game:
 **Important:** Never call `play_main_scene` without a follow-up action or stop command, as the game will run indefinitely and block further testing.
 
 **MCP Server Restart:** You are already connected to this MCP server via the `mcp__godot-editor__*` tools. After modifying the plugin code, ask the user to restart the MCP server so changes take effect before testing.
+
+## Test Scenes
+
+The project includes test scenes for verifying MCP tool functionality:
+
+### test_2d.tscn
+A 2D UI test scene with interactive Control nodes:
+- **TestButton** (unique name) - Click to increment a counter displayed in the status label
+- **HoverButton** (unique name) - Hover to see visual feedback (button text changes, status updates)
+- **StatusLabel** (unique name) - Displays interaction feedback
+
+Use this to test `click_node` and `hover_node` with Control nodes.
+
+### test_3d.tscn
+A 3D test scene with two cubes and a camera:
+- **ClickableCube** (unique name) - Left cube; click to see counter increment and brief color flash
+- **HoverableCube** (unique name) - Right cube; hover to turn it green
+- **ClickStatus** / **HoverStatus** (unique names) - UI labels showing interaction state
+
+Use this to test `click_node` and `hover_node` with Node3D nodes. Verifies that 3D-to-screen projection via `camera.unproject_position()` works correctly.

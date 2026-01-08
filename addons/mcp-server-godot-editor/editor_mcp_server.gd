@@ -305,6 +305,71 @@ func _handle_tools_list(id: Variant) -> void:
 				"required": ["type"],
 			},
 		},
+		{
+			"name": "click_node",
+			"description": "Finds a node in the running game and synthesizes a mouse click at its screen position. Works with Control, Node2D, and Node3D nodes. For Node3D, projects the 3D position to screen coordinates using the active camera. Exactly one identification method must be provided.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"node_path": {
+						"type": "string",
+						"description": "Absolute node path (e.g., '/root/Main/UI/Button'). Most explicit identification method.",
+					},
+					"unique_name": {
+						"type": "string",
+						"description": "Scene-unique node name (nodes marked with %% in the editor, e.g., '%%HealthBar'). Searches the entire scene tree.",
+					},
+					"accessibility_name": {
+						"type": "string",
+						"description": "Control's accessibility_name property. Only works for Control nodes. Searches the entire scene tree.",
+					},
+					"button_index": {
+						"type": "integer",
+						"description": "Mouse button to click. Defaults to 1 (left click). Corresponds to Godot's MouseButton enum.",
+						"default": 1,
+					},
+					"offset": {
+						"type": "object",
+						"properties": {
+							"x": {"type": "number"},
+							"y": {"type": "number"},
+						},
+						"description": "Offset from the node's center position in pixels. Useful for clicking specific parts of a Control.",
+					},
+				},
+				"required": [],
+			},
+		},
+		{
+			"name": "hover_node",
+			"description": "Finds a node in the running game and moves the mouse to its screen position (without clicking). Useful for triggering hover states, tooltips, or verifying UI behavior. Works with Control, Node2D, and Node3D nodes. Exactly one identification method must be provided.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"node_path": {
+						"type": "string",
+						"description": "Absolute node path (e.g., '/root/Main/UI/Button'). Most explicit identification method.",
+					},
+					"unique_name": {
+						"type": "string",
+						"description": "Scene-unique node name (nodes marked with %% in the editor, e.g., '%%HealthBar'). Searches the entire scene tree.",
+					},
+					"accessibility_name": {
+						"type": "string",
+						"description": "Control's accessibility_name property. Only works for Control nodes. Searches the entire scene tree.",
+					},
+					"offset": {
+						"type": "object",
+						"properties": {
+							"x": {"type": "number"},
+							"y": {"type": "number"},
+						},
+						"description": "Offset from the node's center position in pixels.",
+					},
+				},
+				"required": [],
+			},
+		},
 	]
 	_send_result(id, {"tools": tools})
 
@@ -333,6 +398,12 @@ func _handle_tools_call(params: Dictionary, id: Variant) -> void:
 
 		"synthesize_input":
 			_call_synthesize_input(id, tool_args)
+
+		"click_node":
+			_call_node_interaction(id, tool_args, C.NodeInteraction.CLICK)
+
+		"hover_node":
+			_call_node_interaction(id, tool_args, C.NodeInteraction.HOVER)
 
 		_:
 			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
@@ -489,6 +560,75 @@ func _call_synthesize_input(id: Variant, args: Dictionary) -> void:
 		_send_tool_result(id, "Input synthesized: " + input_type + ". " + message)
 	else:
 		_send_tool_error(id, "Failed to synthesize input: " + message)
+
+
+func _call_node_interaction(id: Variant, args: Dictionary, interaction_type: String) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	if engine_client.ready_sessions.is_empty():
+		_send_tool_error(id, "No game is currently running. Start the game from the editor first.")
+		return
+
+	# Validate that exactly one identification method is provided
+	var node_path: String = args.get("node_path", "")
+	var unique_name: String = args.get("unique_name", "")
+	var accessibility_name: String = args.get("accessibility_name", "")
+
+	var id_count := 0
+	if not node_path.is_empty():
+		id_count += 1
+	if not unique_name.is_empty():
+		id_count += 1
+	if not accessibility_name.is_empty():
+		id_count += 1
+
+	if id_count == 0:
+		_send_error(id, ERROR_INVALID_PARAMS, "Must provide exactly one identification method: node_path, unique_name, or accessibility_name")
+		return
+	if id_count > 1:
+		_send_error(id, ERROR_INVALID_PARAMS, "Must provide exactly one identification method, but multiple were provided")
+		return
+
+	# Build the interaction data to send to the game
+	var interaction_data := {
+		"interaction_type": interaction_type,
+		"button_index": args.get("button_index", 1),
+	}
+
+	# Set the identifier
+	if not node_path.is_empty():
+		interaction_data["identifier_type"] = C.NodeIdentifier.NODE_PATH
+		interaction_data["identifier_value"] = node_path
+	elif not unique_name.is_empty():
+		interaction_data["identifier_type"] = C.NodeIdentifier.UNIQUE_NAME
+		interaction_data["identifier_value"] = unique_name
+	else:
+		interaction_data["identifier_type"] = C.NodeIdentifier.ACCESSIBILITY_NAME
+		interaction_data["identifier_value"] = accessibility_name
+
+	# Handle offset
+	var offset: Dictionary = args.get("offset", {})
+	interaction_data["offset_x"] = offset.get("x", 0.0)
+	interaction_data["offset_y"] = offset.get("y", 0.0)
+
+	# Send the interaction request to the running game
+	engine_client.send_message("node_interaction", [interaction_data])
+
+	# Wait for acknowledgment
+	var result: Variant = await _wait_on_signal(engine_client.node_interaction_completed)
+	if result == null:
+		_send_tool_error(id, "Timed out waiting for node interaction acknowledgment.")
+		return
+
+	var success: bool = result.get("success", false)
+	var message: String = result.get("message", "")
+
+	if success:
+		_send_tool_result(id, message)
+	else:
+		_send_tool_error(id, message)
 
 
 func _send_tool_result(id: Variant, message: String) -> void:

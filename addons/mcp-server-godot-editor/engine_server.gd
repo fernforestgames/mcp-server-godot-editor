@@ -25,6 +25,11 @@ func _on_message_captured(message: String, data: Array) -> bool:
 			_handle_synthesize_input(input_data)
 			return true
 
+		"node_interaction":
+			var interaction_data: Dictionary = data[0] if data else {}
+			_handle_node_interaction(interaction_data)
+			return true
+
 		_:
 			return false
 
@@ -250,3 +255,169 @@ func _string_to_keycode(key_str: String) -> Key:
 		"MENU": return KEY_MENU
 
 	return KEY_NONE
+
+
+# ============================================================================
+# Node Interaction
+# ============================================================================
+
+func _handle_node_interaction(interaction_data: Dictionary) -> void:
+	var interaction_type: String = interaction_data.get("interaction_type", "")
+	var identifier_type: String = interaction_data.get("identifier_type", "")
+	var identifier_value: String = interaction_data.get("identifier_value", "")
+	var button_index: int = interaction_data.get("button_index", 1)
+	var offset_x: float = interaction_data.get("offset_x", 0.0)
+	var offset_y: float = interaction_data.get("offset_y", 0.0)
+
+	print("[MCP] Node interaction: %s, identifier: %s = '%s'" % [interaction_type, identifier_type, identifier_value])
+
+	# Find the node
+	var node := _find_node(identifier_type, identifier_value)
+	if node == null:
+		_send_node_interaction_result(false, "Node not found with %s: '%s'" % [identifier_type, identifier_value])
+		return
+
+	# Get the screen position for the node
+	var screen_pos_result := _get_node_screen_position(node)
+	if not screen_pos_result.success:
+		_send_node_interaction_result(false, screen_pos_result.message)
+		return
+
+	var screen_pos: Vector2 = screen_pos_result.position
+	screen_pos += Vector2(offset_x, offset_y)
+
+	# Perform the interaction
+	match interaction_type:
+		C.NodeInteraction.CLICK:
+			_perform_click(screen_pos, button_index)
+			_send_node_interaction_result(true, "Clicked node '%s' at position (%d, %d)" % [
+				node.name, int(screen_pos.x), int(screen_pos.y)
+			])
+
+		C.NodeInteraction.HOVER:
+			_perform_hover(screen_pos)
+			_send_node_interaction_result(true, "Moved mouse to node '%s' at position (%d, %d)" % [
+				node.name, int(screen_pos.x), int(screen_pos.y)
+			])
+
+		_:
+			_send_node_interaction_result(false, "Unknown interaction type: " + interaction_type)
+
+
+func _find_node(identifier_type: String, identifier_value: String) -> Node:
+	var root := get_tree().root
+
+	match identifier_type:
+		C.NodeIdentifier.NODE_PATH:
+			if root.has_node(identifier_value):
+				return root.get_node(identifier_value)
+			return null
+
+		C.NodeIdentifier.UNIQUE_NAME:
+			return _find_node_by_unique_name(root, identifier_value)
+
+		C.NodeIdentifier.ACCESSIBILITY_NAME:
+			return _find_node_by_accessibility_name(root, identifier_value)
+
+		_:
+			return null
+
+
+func _find_node_by_unique_name(node: Node, unique_name: String) -> Node:
+	# Check if this node has the unique name
+	if node.unique_name_in_owner and node.name == unique_name:
+		return node
+
+	# Recursively search children
+	for child in node.get_children():
+		var found := _find_node_by_unique_name(child, unique_name)
+		if found:
+			return found
+
+	return null
+
+
+func _find_node_by_accessibility_name(node: Node, accessibility_name: String) -> Node:
+	# Check if this node is a Control with matching accessibility name
+	if node is Control:
+		var control := node as Control
+		if control.accessibility_name == accessibility_name:
+			return control
+
+	# Recursively search children
+	for child in node.get_children():
+		var found := _find_node_by_accessibility_name(child, accessibility_name)
+		if found:
+			return found
+
+	return null
+
+
+func _get_node_screen_position(node: Node) -> Dictionary:
+	if node is Control:
+		var control := node as Control
+		var center := control.get_global_rect().get_center()
+		return {"success": true, "position": center, "message": ""}
+
+	elif node is Node2D:
+		var node2d := node as Node2D
+		# For Node2D, global_position is in canvas coordinates which matches screen coords
+		return {"success": true, "position": node2d.global_position, "message": ""}
+
+	elif node is Node3D:
+		var node3d := node as Node3D
+		var camera := get_viewport().get_camera_3d()
+
+		if camera == null:
+			return {"success": false, "position": Vector2.ZERO, "message": "No 3D camera found in viewport"}
+
+		# Check if the point is in front of the camera
+		if not camera.is_position_in_frustum(node3d.global_position):
+			return {"success": false, "position": Vector2.ZERO, "message": "Node3D position is not visible (outside camera frustum)"}
+
+		# Project 3D position to screen coordinates
+		var screen_pos := camera.unproject_position(node3d.global_position)
+
+		# Check if it's behind the camera
+		var to_point := node3d.global_position - camera.global_position
+		var forward := -camera.global_transform.basis.z
+		if to_point.dot(forward) < 0:
+			return {"success": false, "position": Vector2.ZERO, "message": "Node3D is behind the camera"}
+
+		return {"success": true, "position": screen_pos, "message": ""}
+
+	else:
+		return {"success": false, "position": Vector2.ZERO, "message": "Node type '%s' is not supported. Must be Control, Node2D, or Node3D." % node.get_class()}
+
+
+func _perform_click(position: Vector2, button_index: int) -> void:
+	# Create and send mouse button press event
+	var press_event := InputEventMouseButton.new()
+	press_event.button_index = button_index
+	press_event.pressed = true
+	press_event.position = position
+	press_event.global_position = position
+	Input.parse_input_event(press_event)
+
+	# Create and send mouse button release event
+	var release_event := InputEventMouseButton.new()
+	release_event.button_index = button_index
+	release_event.pressed = false
+	release_event.position = position
+	release_event.global_position = position
+	Input.parse_input_event(release_event)
+
+
+func _perform_hover(position: Vector2) -> void:
+	# Create and send mouse motion event
+	var motion_event := InputEventMouseMotion.new()
+	motion_event.position = position
+	motion_event.global_position = position
+	Input.parse_input_event(motion_event)
+
+
+func _send_node_interaction_result(success: bool, message: String) -> void:
+	EngineDebugger.send_message("%s:node_interaction_completed" % C.MESSAGE_PREFIX, [{
+		"success": success,
+		"message": message,
+	}])
