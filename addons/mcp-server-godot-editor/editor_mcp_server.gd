@@ -259,11 +259,11 @@ func _handle_tools_list(id: Variant) -> void:
 					},
 					"keycode": {
 						"type": "string",
-						"description": "The key to press (e.g., 'A', 'Space', 'Enter', 'Escape', 'F1', 'Shift', 'Ctrl', 'Alt'). Used for key type.",
+						"description": "The key to press (e.g., 'A', 'Space', 'Enter', 'Escape', 'F1', 'Shift', 'Ctrl', 'Alt'). Used for key type. Corresponds to Godot's Key enum names (see @GlobalScope).",
 					},
 					"button_index": {
 						"type": "integer",
-						"description": "Mouse button index (1=left, 2=right, 3=middle, 4=wheel_up, 5=wheel_down). Used for mouse_button type.",
+						"description": "Mouse button index. Used for mouse_button type. Corresponds to Godot's MouseButton enum (see @GlobalScope): 1=LEFT, 2=RIGHT, 3=MIDDLE, 4=WHEEL_UP, 5=WHEEL_DOWN.",
 					},
 					"position": {
 						"type": "object",
@@ -291,11 +291,11 @@ func _handle_tools_list(id: Variant) -> void:
 					},
 					"joypad_button": {
 						"type": "integer",
-						"description": "Joypad button index (0=A/Cross, 1=B/Circle, 2=X/Square, 3=Y/Triangle, etc.). Used for joypad_button type.",
+						"description": "Joypad button index. Used for joypad_button type. Corresponds to Godot's JoyButton enum (see @GlobalScope): 0=A, 1=B, 2=X, 3=Y, etc.",
 					},
 					"axis": {
 						"type": "integer",
-						"description": "Joypad axis index (0=left_x, 1=left_y, 2=right_x, 3=right_y, 4=trigger_left, 5=trigger_right). Used for joypad_motion type.",
+						"description": "Joypad axis index. Used for joypad_motion type. Corresponds to Godot's JoyAxis enum (see @GlobalScope): 0=LEFT_X, 1=LEFT_Y, 2=RIGHT_X, 3=RIGHT_Y, 4=TRIGGER_LEFT, 5=TRIGGER_RIGHT.",
 					},
 					"axis_value": {
 						"type": "number",
