@@ -22,6 +22,7 @@ enum {
 	ERROR_INTERNAL_ERROR = -32603,
 }
 
+const C := preload("constants.gd")
 const AwaitUtils := preload("await_utils.gd")
 const EngineClient := preload("engine_client.gd")
 const StdinReader := preload("stdin_reader.gd")
@@ -241,6 +242,69 @@ func _handle_tools_list(id: Variant) -> void:
 				"required": [],
 			},
 		},
+		{
+			"name": "synthesize_input",
+			"description": "Synthesizes input events in the running game. Supports keyboard, mouse, and gamepad input.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"type": {
+						"type": "string",
+						"enum": C.InputType.values(),
+						"description": "The type of input event to synthesize.",
+					},
+					"pressed": {
+						"type": "boolean",
+						"description": "Whether the input is pressed (true) or released (false). Used for key, mouse_button, action, and joypad_button types.",
+					},
+					"keycode": {
+						"type": "string",
+						"description": "The key to press (e.g., 'A', 'Space', 'Enter', 'Escape', 'F1', 'Shift', 'Ctrl', 'Alt'). Used for key type. Corresponds to Godot's Key enum names (see @GlobalScope).",
+					},
+					"button_index": {
+						"type": "integer",
+						"description": "Mouse button index. Used for mouse_button type. Corresponds to Godot's MouseButton enum (see @GlobalScope): 1=LEFT, 2=RIGHT, 3=MIDDLE, 4=WHEEL_UP, 5=WHEEL_DOWN.",
+					},
+					"position": {
+						"type": "object",
+						"properties": {
+							"x": {"type": "number"},
+							"y": {"type": "number"},
+						},
+						"description": "Mouse position in viewport coordinates. Used for mouse_button and mouse_motion types.",
+					},
+					"relative": {
+						"type": "object",
+						"properties": {
+							"x": {"type": "number"},
+							"y": {"type": "number"},
+						},
+						"description": "Relative mouse movement. Used for mouse_motion type.",
+					},
+					"action": {
+						"type": "string",
+						"description": "The action name from the Input Map (e.g., 'ui_accept', 'jump', 'move_left'). Used for action type.",
+					},
+					"strength": {
+						"type": "number",
+						"description": "Action strength from 0.0 to 1.0. Used for action type. Defaults to 1.0.",
+					},
+					"joypad_button": {
+						"type": "integer",
+						"description": "Joypad button index. Used for joypad_button type. Corresponds to Godot's JoyButton enum (see @GlobalScope): 0=A, 1=B, 2=X, 3=Y, etc.",
+					},
+					"axis": {
+						"type": "integer",
+						"description": "Joypad axis index. Used for joypad_motion type. Corresponds to Godot's JoyAxis enum (see @GlobalScope): 0=LEFT_X, 1=LEFT_Y, 2=RIGHT_X, 3=RIGHT_Y, 4=TRIGGER_LEFT, 5=TRIGGER_RIGHT.",
+					},
+					"axis_value": {
+						"type": "number",
+						"description": "Joypad axis value from -1.0 to 1.0. Used for joypad_motion type.",
+					},
+				},
+				"required": ["type"],
+			},
+		},
 	]
 	_send_result(id, {"tools": tools})
 
@@ -266,6 +330,9 @@ func _handle_tools_call(params: Dictionary, id: Variant) -> void:
 
 		"stop_playing_scene":
 			_call_stop_playing_scene(id)
+
+		"synthesize_input":
+			_call_synthesize_input(id, tool_args)
 
 		_:
 			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
@@ -339,6 +406,89 @@ func _call_play_scene(id: Variant, path: String) -> void:
 func _call_stop_playing_scene(id: Variant) -> void:
 	EditorInterface.stop_playing_scene()
 	_send_tool_result(id, "Stopped playing scene.")
+
+
+func _call_synthesize_input(id: Variant, args: Dictionary) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	if engine_client.ready_sessions.is_empty():
+		_send_tool_error(id, "No game is currently running. Start the game from the editor first.")
+		return
+
+	var input_type: String = args.get("type", "")
+	if input_type.is_empty():
+		_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter: type")
+		return
+
+	# Build the input data to send to the game
+	var input_data := {
+		"type": input_type,
+		"pressed": args.get("pressed", true),
+	}
+
+	match input_type:
+		C.InputType.KEY:
+			var keycode: String = args.get("keycode", "")
+			if keycode.is_empty():
+				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter for key type: keycode")
+				return
+			input_data["keycode"] = keycode
+
+		C.InputType.MOUSE_BUTTON:
+			var button_index: int = args.get("button_index", 1)
+			input_data["button_index"] = button_index
+			var pos: Dictionary = args.get("position", {})
+			input_data["position_x"] = pos.get("x", 0.0)
+			input_data["position_y"] = pos.get("y", 0.0)
+
+		C.InputType.MOUSE_MOTION:
+			var pos: Dictionary = args.get("position", {})
+			input_data["position_x"] = pos.get("x", 0.0)
+			input_data["position_y"] = pos.get("y", 0.0)
+			var rel: Dictionary = args.get("relative", {})
+			input_data["relative_x"] = rel.get("x", 0.0)
+			input_data["relative_y"] = rel.get("y", 0.0)
+
+		C.InputType.ACTION:
+			var action_name: String = args.get("action", "")
+			if action_name.is_empty():
+				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter for action type: action")
+				return
+			input_data["action"] = action_name
+			input_data["strength"] = args.get("strength", 1.0)
+
+		C.InputType.JOYPAD_BUTTON:
+			var joypad_btn: int = args.get("joypad_button", 0)
+			input_data["joypad_button"] = joypad_btn
+
+		C.InputType.JOYPAD_MOTION:
+			var axis: int = args.get("axis", 0)
+			var axis_value: float = args.get("axis_value", 0.0)
+			input_data["axis"] = axis
+			input_data["axis_value"] = axis_value
+
+		_:
+			_send_error(id, ERROR_INVALID_PARAMS, "Unknown input type: " + input_type)
+			return
+
+	# Send the input synthesis request to the running game
+	engine_client.send_message("synthesize_input", [input_data])
+
+	# Wait for acknowledgment
+	var result: Variant = await _wait_on_signal(engine_client.input_synthesized)
+	if result == null:
+		_send_tool_error(id, "Timed out waiting for input synthesis acknowledgment.")
+		return
+
+	var success: bool = result.get("success", false)
+	var message: String = result.get("message", "")
+
+	if success:
+		_send_tool_result(id, "Input synthesized: " + input_type + ". " + message)
+	else:
+		_send_tool_error(id, "Failed to synthesize input: " + message)
 
 
 func _send_tool_result(id: Variant, message: String) -> void:

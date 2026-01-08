@@ -12,6 +12,7 @@ The MCP server exposes the following tools:
 | `play_main_scene` | Starts the project's main scene |
 | `play_scene` | Starts a specific scene by resource path |
 | `stop_playing_scene` | Stops the currently running scene |
+| `synthesize_input` | Injects input events into the running game (key, mouse, action, joypad) |
 
 ## Installation
 
