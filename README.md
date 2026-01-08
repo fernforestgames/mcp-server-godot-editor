@@ -40,6 +40,8 @@ Here's an example `.mcp.json` configuration:
 }
 ```
 
+Note that this plugin must also be enabled in the project settings for the MCP server to start running.
+
 ## Architecture
 
 The plugin uses a two-layer communication system:
