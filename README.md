@@ -13,6 +13,8 @@ The MCP server exposes the following tools:
 | `play_scene` | Starts a specific scene by resource path |
 | `stop_playing_scene` | Stops the currently running scene |
 | `synthesize_input` | Injects input events into the running game (key, mouse, action, joypad) |
+| `click_node` | Simulates a mouse click on a specific node in the running game |
+| `hover_node` | Simulates a mouse hover over a specific node in the running game |
 
 ## Installation
 

@@ -32,6 +32,8 @@ MCP Client <--stdin/stdout--> editor_mcp_server.gd <--EngineDebugger--> engine_s
 - `play_scene` - Starts a specific scene by path
 - `stop_playing_scene` - Stops the currently running scene
 - `synthesize_input` - Injects input events into the running game (key, mouse, action, joypad)
+- `click_node` - Finds a node by path/unique name/accessibility name and clicks it
+- `hover_node` - Finds a node and moves the mouse to it (for hover states, tooltips)
 
 ## Development Notes
 
