@@ -39,12 +39,12 @@ func _handle_synthesize_input(input_data: Dictionary) -> void:
 	var message := ""
 
 	match input_type:
-		"key":
+		C.InputType.KEY:
 			event = _create_key_event(input_data, pressed)
 			if event:
 				message = "Key '%s' %s" % [input_data.get("keycode", ""), "pressed" if pressed else "released"]
 
-		"mouse_button":
+		C.InputType.MOUSE_BUTTON:
 			event = _create_mouse_button_event(input_data, pressed)
 			if event:
 				message = "Mouse button %d %s at (%d, %d)" % [
@@ -54,7 +54,7 @@ func _handle_synthesize_input(input_data: Dictionary) -> void:
 					int(input_data.get("position_y", 0))
 				]
 
-		"mouse_motion":
+		C.InputType.MOUSE_MOTION:
 			event = _create_mouse_motion_event(input_data)
 			if event:
 				message = "Mouse moved to (%d, %d)" % [
@@ -62,12 +62,12 @@ func _handle_synthesize_input(input_data: Dictionary) -> void:
 					int(input_data.get("position_y", 0))
 				]
 
-		"action":
+		C.InputType.ACTION:
 			event = _create_action_event(input_data, pressed)
 			if event:
 				message = "Action '%s' %s" % [input_data.get("action", ""), "pressed" if pressed else "released"]
 
-		"joypad_button":
+		C.InputType.JOYPAD_BUTTON:
 			event = _create_joypad_button_event(input_data, pressed)
 			if event:
 				message = "Joypad button %d %s" % [
@@ -75,7 +75,7 @@ func _handle_synthesize_input(input_data: Dictionary) -> void:
 					"pressed" if pressed else "released"
 				]
 
-		"joypad_motion":
+		C.InputType.JOYPAD_MOTION:
 			event = _create_joypad_motion_event(input_data)
 			if event:
 				message = "Joypad axis %d set to %.2f" % [

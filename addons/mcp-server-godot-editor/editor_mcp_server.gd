@@ -22,6 +22,7 @@ enum {
 	ERROR_INTERNAL_ERROR = -32603,
 }
 
+const C := preload("constants.gd")
 const AwaitUtils := preload("await_utils.gd")
 const EngineClient := preload("engine_client.gd")
 const StdinReader := preload("stdin_reader.gd")
@@ -249,7 +250,7 @@ func _handle_tools_list(id: Variant) -> void:
 				"properties": {
 					"type": {
 						"type": "string",
-						"enum": ["key", "mouse_button", "mouse_motion", "action", "joypad_button", "joypad_motion"],
+						"enum": C.InputType.values(),
 						"description": "The type of input event to synthesize.",
 					},
 					"pressed": {
@@ -428,21 +429,21 @@ func _call_synthesize_input(id: Variant, args: Dictionary) -> void:
 	}
 
 	match input_type:
-		"key":
+		C.InputType.KEY:
 			var keycode: String = args.get("keycode", "")
 			if keycode.is_empty():
 				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter for key type: keycode")
 				return
 			input_data["keycode"] = keycode
 
-		"mouse_button":
+		C.InputType.MOUSE_BUTTON:
 			var button_index: int = args.get("button_index", 1)
 			input_data["button_index"] = button_index
 			var pos: Dictionary = args.get("position", {})
 			input_data["position_x"] = pos.get("x", 0.0)
 			input_data["position_y"] = pos.get("y", 0.0)
 
-		"mouse_motion":
+		C.InputType.MOUSE_MOTION:
 			var pos: Dictionary = args.get("position", {})
 			input_data["position_x"] = pos.get("x", 0.0)
 			input_data["position_y"] = pos.get("y", 0.0)
@@ -450,7 +451,7 @@ func _call_synthesize_input(id: Variant, args: Dictionary) -> void:
 			input_data["relative_x"] = rel.get("x", 0.0)
 			input_data["relative_y"] = rel.get("y", 0.0)
 
-		"action":
+		C.InputType.ACTION:
 			var action_name: String = args.get("action", "")
 			if action_name.is_empty():
 				_send_error(id, ERROR_INVALID_PARAMS, "Missing required parameter for action type: action")
@@ -458,11 +459,11 @@ func _call_synthesize_input(id: Variant, args: Dictionary) -> void:
 			input_data["action"] = action_name
 			input_data["strength"] = args.get("strength", 1.0)
 
-		"joypad_button":
+		C.InputType.JOYPAD_BUTTON:
 			var joypad_btn: int = args.get("joypad_button", 0)
 			input_data["joypad_button"] = joypad_btn
 
-		"joypad_motion":
+		C.InputType.JOYPAD_MOTION:
 			var axis: int = args.get("axis", 0)
 			var axis_value: float = args.get("axis_value", 0.0)
 			input_data["axis"] = axis

@@ -41,6 +41,8 @@ MCP Client <--stdin/stdout--> editor_mcp_server.gd <--EngineDebugger--> engine_s
 - The server disables `Engine.print_to_stdout` to prevent Godot's print statements from corrupting the JSON-RPC stream
 - Message prefix "mcp" is used for debugger message capture routing (see constants.gd)
 
+**LSP Diagnostics:** After modifying GDScript files, the LSP may show false errors until restarted. If you see errors like "Cannot find member" for constants/methods that clearly exist, the LSP likely needs a restart.
+
 ## Testing Workflow
 
 When testing MCP tools that require a running game:
