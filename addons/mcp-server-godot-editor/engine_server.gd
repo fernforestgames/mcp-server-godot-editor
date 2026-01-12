@@ -359,19 +359,24 @@ func _find_node_by_accessibility_name(node: Node, accessibility_name: String) ->
 
 
 func _get_node_screen_position(node: Node) -> Dictionary:
+	var viewport := get_viewport()
+
 	if node is Control:
 		var control := node as Control
 		var center := control.get_global_rect().get_center()
-		return {"success": true, "position": center, "message": ""}
+		# Transform from viewport coordinates to window/screen coordinates
+		# This accounts for stretch mode, content scale, etc.
+		var screen_pos := viewport.get_screen_transform() * center
+		return {"success": true, "position": screen_pos, "message": ""}
 
 	elif node is Node2D:
 		var node2d := node as Node2D
-		# For Node2D, global_position is in canvas coordinates which matches screen coords
-		return {"success": true, "position": node2d.global_position, "message": ""}
+		# Transform from canvas coordinates to screen coordinates
+		var screen_pos := viewport.get_screen_transform() * node2d.global_position
+		return {"success": true, "position": screen_pos, "message": ""}
 
 	elif node is Node3D:
 		var node3d := node as Node3D
-		var viewport := get_viewport()
 		var camera := viewport.get_camera_3d()
 
 		if camera == null:
