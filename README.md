@@ -15,6 +15,7 @@ The MCP server exposes the following tools:
 | `synthesize_input` | Injects input events into the running game (key, mouse, action, joypad) |
 | `click_node` | Simulates a mouse click on a specific node in the running game |
 | `hover_node` | Simulates a mouse hover over a specific node in the running game |
+| `get_node_tree` | Read the scene tree from a running game |
 
 ## Installation
 
