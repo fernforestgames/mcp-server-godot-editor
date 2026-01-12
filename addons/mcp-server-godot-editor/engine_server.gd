@@ -30,6 +30,11 @@ func _on_message_captured(message: String, data: Array) -> bool:
 			_handle_node_interaction(interaction_data)
 			return true
 
+		"get_node_tree":
+			var tree_request: Dictionary = data[0] if data else {}
+			_handle_get_node_tree(tree_request)
+			return true
+
 		_:
 			return false
 
@@ -167,7 +172,7 @@ func _create_joypad_motion_event(input_data: Dictionary) -> InputEventJoypadMoti
 
 
 func _send_input_result(success: bool, message: String) -> void:
-	EngineDebugger.send_message("%s:input_synthesized" % C.MESSAGE_PREFIX, [{
+	EngineDebugger.send_message("%s:input_synthesized" % C.MESSAGE_PREFIX, [ {
 		"success": success,
 		"message": message,
 	}])
@@ -417,7 +422,64 @@ func _perform_hover(position: Vector2) -> void:
 
 
 func _send_node_interaction_result(success: bool, message: String) -> void:
-	EngineDebugger.send_message("%s:node_interaction_completed" % C.MESSAGE_PREFIX, [{
+	EngineDebugger.send_message("%s:node_interaction_completed" % C.MESSAGE_PREFIX, [ {
 		"success": success,
+		"message": message,
+	}])
+
+
+# ============================================================================
+# Node Tree
+# ============================================================================
+
+func _handle_get_node_tree(tree_request: Dictionary) -> void:
+	var root_path: String = tree_request.get("root_path", "/root")
+	var max_depth: int = tree_request.get("max_depth", -1)
+
+	print("[MCP] Getting node tree from: %s (max_depth: %d)" % [root_path, max_depth])
+
+	var root := get_tree().root
+	var start_node: Node = null
+
+	if root_path == "/root" or root_path.is_empty():
+		start_node = root
+	elif root.has_node(root_path):
+		start_node = root.get_node(root_path)
+
+	if start_node == null:
+		_send_node_tree_result(false, "", "Node not found at path: " + root_path)
+		return
+
+	var tree_str := _format_node_tree(start_node, 0, max_depth)
+	_send_node_tree_result(true, tree_str, "")
+
+
+func _format_node_tree(node: Node, depth: int, max_depth: int) -> String:
+	var result := ""
+
+	# Build the line for this node (tabs are more token-efficient than spaces)
+	var indent := "\t".repeat(depth)
+	var line := indent + node.name + " (" + node.get_class() + ")"
+
+	# Add script type if present
+	var script: Script = node.get_script()
+	if script and script.resource_path:
+		var script_name := script.resource_path.get_file()
+		line += " [" + script_name + "]"
+
+	result += line + "\n"
+
+	# Recurse into children if not at max depth
+	if max_depth < 0 or depth < max_depth:
+		for child in node.get_children():
+			result += _format_node_tree(child, depth + 1, max_depth)
+
+	return result
+
+
+func _send_node_tree_result(success: bool, tree: String, message: String) -> void:
+	EngineDebugger.send_message("%s:node_tree" % C.MESSAGE_PREFIX, [ {
+		"success": success,
+		"tree": tree,
 		"message": message,
 	}])

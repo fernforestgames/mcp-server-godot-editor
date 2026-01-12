@@ -8,6 +8,7 @@ signal screenshot_received(webp_buffer: PackedByteArray)
 signal session_ready(session_id: int)
 signal input_synthesized(result: Dictionary)
 signal node_interaction_completed(result: Dictionary)
+signal node_tree_received(result: Dictionary)
 
 var ready_sessions: Array[int]
 
@@ -39,6 +40,11 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"%s:node_interaction_completed" % C.MESSAGE_PREFIX:
 			var result: Dictionary = data[0] if data else {}
 			node_interaction_completed.emit(result)
+			return true
+
+		"%s:node_tree" % C.MESSAGE_PREFIX:
+			var result: Dictionary = data[0] if data else {}
+			node_tree_received.emit(result)
 			return true
 
 		_:

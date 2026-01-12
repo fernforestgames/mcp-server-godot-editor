@@ -370,6 +370,24 @@ func _handle_tools_list(id: Variant) -> void:
 				"required": [],
 			},
 		},
+		{
+			"name": "get_node_tree",
+			"description": "Returns the current scene tree from the running game. Shows node names, built-in types, and script types. Requires the game to be running.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"root_path": {
+						"type": "string",
+						"description": "Optional path to start the tree from (e.g., '/root/Main'). Defaults to '/root' if not specified.",
+					},
+					"max_depth": {
+						"type": "integer",
+						"description": "Maximum depth to traverse. Defaults to -1 (unlimited).",
+					},
+				},
+				"required": [],
+			},
+		},
 	]
 	_send_result(id, {"tools": tools})
 
@@ -404,6 +422,9 @@ func _handle_tools_call(params: Dictionary, id: Variant) -> void:
 
 		"hover_node":
 			_call_node_interaction(id, tool_args, C.NodeInteraction.HOVER)
+
+		"get_node_tree":
+			_call_get_node_tree(id, tool_args)
 
 		_:
 			_send_error(id, ERROR_INVALID_PARAMS, "Unknown tool: " + tool_name)
@@ -629,6 +650,34 @@ func _call_node_interaction(id: Variant, args: Dictionary, interaction_type: Str
 		_send_tool_result(id, message)
 	else:
 		_send_tool_error(id, message)
+
+
+func _call_get_node_tree(id: Variant, args: Dictionary) -> void:
+	if not engine_client:
+		_send_error(id, ERROR_INTERNAL_ERROR, "Engine client not available")
+		return
+
+	if engine_client.ready_sessions.is_empty():
+		_send_tool_error(id, "No game is currently running. Start the game from the editor first.")
+		return
+
+	var tree_request := {
+		"root_path": args.get("root_path", "/root"),
+		"max_depth": args.get("max_depth", -1),
+	}
+
+	engine_client.send_message("get_node_tree", [tree_request])
+
+	var result: Variant = await _wait_on_signal(engine_client.node_tree_received)
+	if result == null:
+		_send_tool_error(id, "Timed out waiting for node tree.")
+		return
+
+	var success: bool = result.get("success", false)
+	if success:
+		_send_tool_result(id, result.get("tree", ""))
+	else:
+		_send_tool_error(id, result.get("message", "Failed to get node tree"))
 
 
 func _send_tool_result(id: Variant, message: String) -> void:
