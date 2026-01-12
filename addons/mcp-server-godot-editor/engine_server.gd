@@ -371,7 +371,8 @@ func _get_node_screen_position(node: Node) -> Dictionary:
 
 	elif node is Node3D:
 		var node3d := node as Node3D
-		var camera := get_viewport().get_camera_3d()
+		var viewport := get_viewport()
+		var camera := viewport.get_camera_3d()
 
 		if camera == null:
 			return {"success": false, "position": Vector2.ZERO, "message": "No 3D camera found in viewport"}
@@ -380,14 +381,18 @@ func _get_node_screen_position(node: Node) -> Dictionary:
 		if not camera.is_position_in_frustum(node3d.global_position):
 			return {"success": false, "position": Vector2.ZERO, "message": "Node3D position is not visible (outside camera frustum)"}
 
-		# Project 3D position to screen coordinates
-		var screen_pos := camera.unproject_position(node3d.global_position)
+		# Project 3D position to viewport coordinates
+		var viewport_pos := camera.unproject_position(node3d.global_position)
 
 		# Check if it's behind the camera
 		var to_point := node3d.global_position - camera.global_position
 		var forward := -camera.global_transform.basis.z
 		if to_point.dot(forward) < 0:
 			return {"success": false, "position": Vector2.ZERO, "message": "Node3D is behind the camera"}
+
+		# Transform from viewport coordinates to window/screen coordinates
+		# This accounts for stretch mode, content scale, etc.
+		var screen_pos := viewport.get_screen_transform() * viewport_pos
 
 		return {"success": true, "position": screen_pos, "message": ""}
 
